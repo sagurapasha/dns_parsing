@@ -134,30 +134,35 @@ class DNSUpdater:
         product_ids = cursor.fetchall()
 
         for product in product_ids:
-            id_p = product['id']
-            url = f'https://www.dns-shop.ru/product/{id_p}/'
-            response = requests.get(url, headers=self.headers, cookies=self.cookies)
+            try:
 
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                product_card = soup.find('div', {'class': 'container product-card'})
-                product_id = product_card.get('data-product-card') if product_card else None
+                id_p = product['id']
+                url = f'https://www.dns-shop.ru/product/{id_p}/'
+                response = requests.get(url, headers=self.headers, cookies=self.cookies)
 
-                if product_id:
-                    print(product_id, id_p)
-                    cursor.execute("UPDATE dns_shop SET id2 = %s WHERE id = %s", (product_id, id_p))
-                    conn.commit()
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    product_card = soup.find('div', {'class': 'container product-card'})
+                    product_id = product_card.get('data-product-card') if product_card else None
 
-                item = soup.find('meta', {'itemprop': 'position', 'content': '2'})
-                if item:
-                    item_name = item.find_parent('li').find('span', itemprop='name').get_text()
-                    if item_name:
-                        print(item_name, id_p)
-                        cursor.execute("UPDATE dns_shop SET category = %s WHERE id = %s", (item_name, id_p))
+                    if product_id:
+                        print(product_id, id_p)
+                        cursor.execute("UPDATE dns_shop SET id2 = %s WHERE id = %s", (product_id, id_p))
                         conn.commit()
 
-            else:
-                self.get_cookies()  # Update cookies if needed
+                    item = soup.find('meta', {'itemprop': 'position', 'content': '2'})
+                    if item:
+                        item_name = item.find_parent('li').find('span', itemprop='name').get_text()
+                        if item_name:
+                            print(item_name, id_p)
+                            cursor.execute("UPDATE dns_shop SET category = %s WHERE id = %s", (item_name, id_p))
+                            conn.commit()
+
+                else:
+                    self.get_cookies()  # Update cookies if needed
+
+            except Exception as e:
+                print(f"Произошла ошибка в load_name: {e}")
 
         cursor.close()
         conn.close()
@@ -167,12 +172,11 @@ class DNSUpdater:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         cursor.execute("SELECT id2 FROM dns_shop WHERE id2 is not Null and type is null")
         product_ids = cursor.fetchall()
-
-        self.process_ids_and_update_table(cursor, product_ids)
+        self.process_ids_and_update_table(cursor, product_ids, conn)
         cursor.close()
         conn.close()
 
-    def process_ids_and_update_table(self, cursor, ids):
+    def process_ids_and_update_table(self, cursor, ids, conn):
         for product in ids:
             product_id = product["id2"]
             url = f'https://www.dns-shop.ru/pwa/pwa/get-product/?id={product_id}'
