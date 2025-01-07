@@ -178,22 +178,29 @@ class DNSUpdater:
 
     def process_ids_and_update_table(self, cursor, ids, conn):
         for product in ids:
-            product_id = product["id2"]
-            url = f'https://www.dns-shop.ru/pwa/pwa/get-product/?id={product_id}'
-            response = requests.get(url, headers=self.headers, cookies=self.cookies)
 
-            if response.status_code == 200:
-                data = response.json().get('data', {})
-                name = data.get('name', 'N/A').replace('"', "").replace("'", "")
-                code = data.get('code', 'N/A')
-                category = self.extract_category(data)
+            try:
 
-                cursor.execute("""
-                    UPDATE dns_shop SET code = %s, name = %s, type = %s WHERE id2 = %s
-                """, (code, name, category, product_id))
-                conn.commit()
-            else:
-                self.get_cookies()
+                product_id = product["id2"]
+                url = f'https://www.dns-shop.ru/pwa/pwa/get-product/?id={product_id}'
+                response = requests.get(url, headers=self.headers, cookies=self.cookies)
+
+                if response.status_code == 200:
+                    data = response.json().get('data', {})
+                    name = data.get('name', 'N/A').replace('"', "").replace("'", "")
+                    code = data.get('code', 'N/A')
+                    category = self.extract_category(data)
+                    print(code, name, category, product_id)
+
+                    cursor.execute("""
+                        UPDATE dns_shop SET code = %s, name = %s, type = %s WHERE id2 = %s
+                    """, (code, name, category, product_id))
+                    conn.commit()
+                else:
+                    self.get_cookies()
+            except Exception as e:
+                print(f"Произошла ошибка в load_name: {e}")
+
 
     def extract_category(self, data):
         possible_keys = [
